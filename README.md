@@ -1,0 +1,2 @@
+# chipscanlib-demo-android
+ 
