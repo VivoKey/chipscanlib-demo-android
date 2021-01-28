@@ -4,13 +4,17 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import android.annotation.SuppressLint;
 import android.app.PendingIntent;
+import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
 import android.nfc.NfcAdapter;
 import android.nfc.Tag;
 import android.os.Bundle;
 import android.os.Handler;
 import android.view.View;
+import android.widget.Button;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 
@@ -41,6 +45,11 @@ public class MainActivity extends AppCompatActivity {
     ProgressBar running;
     TextView mainText;
     TextView tv3;
+    Button start;
+    ReaderDiscovery tagCallback;
+    Thread getChallAuth;
+    boolean started = false;
+
 
 
     @SuppressLint("SetTextI18n")
@@ -49,21 +58,65 @@ public class MainActivity extends AppCompatActivity {
         /**
          * Fired when the Activity is created. We set up the GUI and grab a new Authenticator object.
          */
+        Bundle nfcExtras = new Bundle();
+        nfcExtras.putInt(NfcAdapter.EXTRA_READER_PRESENCE_CHECK_DELAY, 5000);
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        if(tagCallback == null) {
+            tagCallback = new ReaderDiscovery();
+        }
         mNfcAdapter = NfcAdapter.getDefaultAdapter(this);
         // You need to put your own API key here. This one is likely to be disabled.
         auth = new VivoAuthenticator("");
         running = findViewById(R.id.progressBar);
         mainText = findViewById(R.id.textView);
         tv3 = findViewById(R.id.textView3);
+        start = findViewById(R.id.button);
         mHandler = new Handler();
         mainText.setText("Waiting for tag...");
-        Thread getChallAuth = new Thread(() -> {
-            auth.getChallenge();
-        });
         // Starts a challenge checker
-        getChallAuth.start();
+        if(getChallAuth == null) {
+            getChallAuth = new Thread(() -> {
+                auth.getChallenge();
+            });
+        }
+        // Check for internet
+        ConnectivityManager cm =
+                (ConnectivityManager)this.getSystemService(Context.CONNECTIVITY_SERVICE);
+        mNfcAdapter = NfcAdapter.getDefaultAdapter(this);
+        NetworkInfo activeNetwork = cm.getActiveNetworkInfo();
+        boolean isConnected = activeNetwork != null &&
+                activeNetwork.isConnectedOrConnecting();
+        if(!isConnected) {
+            System.out.println("No internet.");
+            // Shut the app down.
+            this.finishAffinity();
+        }
+
+        //getChallAuth.start();
+    }
+
+    /**
+     * Called when the start button is pressed
+     * @param view
+     */
+    public void toggleScan(View view) {
+
+        if(!started) {
+            if(tagCallback == null) {
+                tagCallback = new ReaderDiscovery();
+            }
+            started = true;
+            Bundle nfcExtras = new Bundle();
+            nfcExtras.putInt(NfcAdapter.EXTRA_READER_PRESENCE_CHECK_DELAY, 5000);
+            mNfcAdapter.enableReaderMode(this, tagCallback, NfcAdapter.FLAG_READER_NFC_A|NfcAdapter.FLAG_READER_NFC_V|NfcAdapter.FLAG_READER_SKIP_NDEF_CHECK, nfcExtras);
+            start.setText("Stop Scan");
+        } else {
+            started = false;
+            mNfcAdapter.disableReaderMode(this);
+            getChallAuth.interrupt();
+            start.setText("Start Scan");
+        }
     }
 
     @Override
@@ -73,30 +126,36 @@ public class MainActivity extends AppCompatActivity {
          * adapter and re-enables dispatch.
          */
         super.onResume();
-        Intent nfcIntent = new Intent(this, getClass());
-        nfcIntent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
-        PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, nfcIntent, 0);
-        IntentFilter[] intentFiltersArray = new IntentFilter[]{};
-        String[][] techList = new String[][]{{android.nfc.tech.Ndef.class.getName()}, {android.nfc.tech.NdefFormatable.class.getName()}};
-        mNfcAdapter = NfcAdapter.getDefaultAdapter(this);
-        mNfcAdapter.enableForegroundDispatch(this, pendingIntent, intentFiltersArray, techList);
-        Thread getChallAuth = new Thread(() -> {
-            auth.getChallenge();
-        });
-        getChallAuth.start();
+
+
+        if(getChallAuth == null) {
+            getChallAuth = new Thread(() -> {
+                auth.getChallenge();
+            });
+        }
+        if(!getChallAuth.isAlive()) {
+            getChallAuth.start();
+        }
+
     }
 
     @Override
     protected void onPause() {
         /**
-         * Runs before we pause. Just disables the dispatch.
+         * Runs before we pause. Just disables the reader mode.
          */
         super.onPause();
-        mNfcAdapter.disableForegroundDispatch(this);
+        if(started) {
+            started = false;
+            mNfcAdapter.disableReaderMode(this);
+            getChallAuth.interrupt();
+            start.setText("Start Scan");
+        }
+
     }
 
     /**
-     * This is the polling service. It uses the handler to schedule itself to run every .5 seconds.
+     * This is the polling service. It uses the handler to schedule itself to run every .1 seconds.
      *
      * Copy it as-is, honestly.
      */
@@ -108,7 +167,7 @@ public class MainActivity extends AppCompatActivity {
             } finally {
                 // 100% guarantee that this always happens, even if
                 // your update method throws an exception
-                mHandler.postDelayed(mStatusChecker, 500);
+                mHandler.postDelayed(mStatusChecker, 100);
             }
         }
     };
@@ -141,6 +200,12 @@ public class MainActivity extends AppCompatActivity {
             } else {
                 tv3.append("Error.");
             }
+            started = false;
+            // Ignore the tag so we don't get a NTAG read immediately after we stop the reading
+            mNfcAdapter.ignore(vivotag.getTag(), 1000, null, null);
+            mNfcAdapter.disableReaderMode(this);
+            getChallAuth.interrupt();
+            start.setText("Start Scan");
 
         }
     }
@@ -159,30 +224,28 @@ public class MainActivity extends AppCompatActivity {
         mHandler.removeCallbacks(mStatusChecker);
     }
 
-    @SuppressLint({"MissingSuperCall", "SetTextI18n"})
-    @Override
-    public void onNewIntent(Intent intent) {
-        /**
-         * When we get an intent. Probably should call super, but it works like this.
-         *
-         * Just grabs the tag if there is one and sets the VivoKey API up, starting it running.
-         * 
-         */
 
-        try {
-            mCurrentTag = intent.getParcelableExtra(NfcAdapter.EXTRA_TAG);
-            // Have a tag
-            // Do the thing, open the API up
-            vivotag = new VivoTag(mCurrentTag);
-            auth.setTag(vivotag);
-            auth.start();
-            startRepeatingTask();
-            running.setVisibility(View.VISIBLE);
-            mainText.setText("Processing auth...");
+    /**
+     * So this handles the discovery of tags, it's a different way of doing it but may fix problems.
+     */
+    class ReaderDiscovery implements NfcAdapter.ReaderCallback {
 
+        @Override
+        public void onTagDiscovered(Tag tag) {
+            try {
+                if(!auth.isRunning()) {
+                    vivotag = new VivoTag(tag);
+                    auth.setTag(vivotag);
+                    auth.start();
+                    startRepeatingTask();
+                    running.setVisibility(View.VISIBLE);
+                    mainText.setText("Processing auth...");
+                }
 
-        } catch (IOException e) {
-            e.printStackTrace();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+
         }
     }
 }
