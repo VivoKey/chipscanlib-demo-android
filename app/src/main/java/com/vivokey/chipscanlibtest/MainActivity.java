@@ -41,9 +41,7 @@ public class MainActivity extends AppCompatActivity {
     ProgressBar running;
     TextView mainText;
     TextView tv3;
-    Thread getChallAuth = new Thread(() -> {
-        auth.getChallenge();
-    });
+
 
     @SuppressLint("SetTextI18n")
     @Override
@@ -61,6 +59,9 @@ public class MainActivity extends AppCompatActivity {
         tv3 = findViewById(R.id.textView3);
         mHandler = new Handler();
         mainText.setText("Waiting for tag...");
+        Thread getChallAuth = new Thread(() -> {
+            auth.getChallenge();
+        });
         // Starts a challenge checker
         getChallAuth.start();
     }
@@ -79,6 +80,9 @@ public class MainActivity extends AppCompatActivity {
         String[][] techList = new String[][]{{android.nfc.tech.Ndef.class.getName()}, {android.nfc.tech.NdefFormatable.class.getName()}};
         mNfcAdapter = NfcAdapter.getDefaultAdapter(this);
         mNfcAdapter.enableForegroundDispatch(this, pendingIntent, intentFiltersArray, techList);
+        Thread getChallAuth = new Thread(() -> {
+            auth.getChallenge();
+        });
         getChallAuth.start();
     }
 
