@@ -2,6 +2,7 @@ package com.vivokey.chipscanlibtest;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import android.accounts.NetworkErrorException;
 import android.annotation.SuppressLint;
 import android.app.PendingIntent;
 import android.content.Context;
@@ -49,6 +50,7 @@ public class MainActivity extends AppCompatActivity {
     ReaderDiscovery tagCallback;
     Thread getChallAuth;
     boolean started = false;
+    Button getChall;
 
 
 
@@ -66,14 +68,6 @@ public class MainActivity extends AppCompatActivity {
             tagCallback = new ReaderDiscovery();
         }
         mNfcAdapter = NfcAdapter.getDefaultAdapter(this);
-        // You need to put your own API key here. This one is likely to be disabled.
-        auth = new VivoAuthenticator("");
-        running = findViewById(R.id.progressBar);
-        mainText = findViewById(R.id.textView);
-        tv3 = findViewById(R.id.textView3);
-        start = findViewById(R.id.button);
-        mHandler = new Handler();
-        mainText.setText("Waiting for tag...");
         // Starts a challenge checker
         if(getChallAuth == null) {
             getChallAuth = new Thread(() -> {
@@ -93,7 +87,7 @@ public class MainActivity extends AppCompatActivity {
             this.finishAffinity();
         }
 
-        //getChallAuth.start();
+
     }
 
     /**
@@ -111,12 +105,28 @@ public class MainActivity extends AppCompatActivity {
             nfcExtras.putInt(NfcAdapter.EXTRA_READER_PRESENCE_CHECK_DELAY, 5000);
             mNfcAdapter.enableReaderMode(this, tagCallback, NfcAdapter.FLAG_READER_NFC_A|NfcAdapter.FLAG_READER_NFC_V|NfcAdapter.FLAG_READER_SKIP_NDEF_CHECK, nfcExtras);
             start.setText("Stop Scan");
+            mainText.setText("Waiting for tag...");
         } else {
             started = false;
             mNfcAdapter.disableReaderMode(this);
             getChallAuth.interrupt();
             start.setText("Start Scan");
+            mainText.setText("");
         }
+    }
+
+    public void startChallenge(View view) {
+        started = false;
+        mNfcAdapter.disableReaderMode(this);
+        getChallAuth.interrupt();
+        start.setText("Start Scan");
+        mainText.setText("");
+        tv3.setText("");
+        // You need to put your own API key here. This one is likely to be disabled.
+        auth = new VivoAuthenticator("");
+        start.setVisibility(View.VISIBLE);
+        getChall.setVisibility(View.INVISIBLE);
+
     }
 
     @Override
@@ -126,16 +136,19 @@ public class MainActivity extends AppCompatActivity {
          * adapter and re-enables dispatch.
          */
         super.onResume();
-
+        running = findViewById(R.id.progressBar);
+        mainText = findViewById(R.id.textView);
+        tv3 = findViewById(R.id.textView3);
+        start = findViewById(R.id.button);
+        mHandler = new Handler();
+        getChall = findViewById(R.id.button2);
 
         if(getChallAuth == null) {
             getChallAuth = new Thread(() -> {
                 auth.getChallenge();
             });
         }
-        if(!getChallAuth.isAlive()) {
-            getChallAuth.start();
-        }
+
 
     }
 
@@ -150,6 +163,8 @@ public class MainActivity extends AppCompatActivity {
             mNfcAdapter.disableReaderMode(this);
             getChallAuth.interrupt();
             start.setText("Start Scan");
+            start.setVisibility(View.INVISIBLE);
+            getChall.setVisibility(View.VISIBLE);
         }
 
     }
@@ -206,6 +221,8 @@ public class MainActivity extends AppCompatActivity {
             mNfcAdapter.disableReaderMode(this);
             getChallAuth.interrupt();
             start.setText("Start Scan");
+            start.setVisibility(View.INVISIBLE);
+            getChall.setVisibility(View.VISIBLE);
 
         }
     }
