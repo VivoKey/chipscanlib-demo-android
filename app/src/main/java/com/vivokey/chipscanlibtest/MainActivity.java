@@ -16,6 +16,7 @@ import android.os.Bundle;
 import android.os.CountDownTimer;
 import android.os.Handler;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.ProgressBar;
 import android.widget.TextView;
@@ -249,6 +250,8 @@ public class MainActivity extends AppCompatActivity {
             mNfcAdapter.ignore(vivotag.getTag(), 1000, null, null);
             mNfcAdapter.disableReaderMode(this);
             stopScan();
+            ViewGroup vg = findViewById(R.id.layout);
+            vg.invalidate();
 
         }
     }
