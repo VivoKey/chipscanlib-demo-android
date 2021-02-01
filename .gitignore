@@ -82,3 +82,4 @@ lint/outputs/
 lint/tmp/
 # lint/reports/
 app/libs/chipscanlib-1.0-RELEASE.jar
+*.jar

@@ -110,8 +110,8 @@ public class MainActivity extends AppCompatActivity {
             nfcExtras.putInt(NfcAdapter.EXTRA_READER_PRESENCE_CHECK_DELAY, 5000);
             mNfcAdapter.enableReaderMode(this, tagCallback, NfcAdapter.FLAG_READER_NFC_A|NfcAdapter.FLAG_READER_NFC_V|NfcAdapter.FLAG_READER_SKIP_NDEF_CHECK, nfcExtras);
             start.setText("Stop Scan");
-            mainText.setText("Waiting for tag...\n");
-            mainText.append("Challenge received.");
+            mainText.setText("Challenge received.\n");
+            mainText.append("Waiting for tag...");
             setVisible();
         } else {
             started = false;
@@ -119,6 +119,7 @@ public class MainActivity extends AppCompatActivity {
             getChallAuth.interrupt();
             start.setText("Start Scan");
             mainText.setText("Challenge received.");
+            running.setVisibility(View.INVISIBLE);
         }
     }
 
@@ -129,7 +130,7 @@ public class MainActivity extends AppCompatActivity {
         start.setText("Start Scan");
         mainText.setText("");
         tv3.setText("");
-        auth = new VivoAuthenticator("d9e65600606720a68293b06acc2ceab2b91a7651f9650377173d6e21c7d9");
+        auth = new VivoAuthenticator("");
         start.setVisibility(View.VISIBLE);
         getChall.setVisibility(View.INVISIBLE);
         toggleScan(view);
