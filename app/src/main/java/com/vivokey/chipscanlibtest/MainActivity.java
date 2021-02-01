@@ -51,6 +51,8 @@ public class MainActivity extends AppCompatActivity {
     Thread getChallAuth;
     boolean started = false;
     Button getChall;
+    // Set the API key here
+    private static String API_KEY = "";
 
 
 
@@ -68,11 +70,6 @@ public class MainActivity extends AppCompatActivity {
             tagCallback = new ReaderDiscovery();
         }
         mNfcAdapter = NfcAdapter.getDefaultAdapter(this);
-        // We're testing something here - enabling Reader mode - don't actually do this as onResume will do it
-        // mNfcAdapter.enableReaderMode(this, tagCallback, NfcAdapter.FLAG_READER_NFC_A+NfcAdapter.FLAG_READER_NFC_F+NfcAdapter.FLAG_READER_SKIP_NDEF_CHECK, nfcExtras);
-        // You need to put your own API key here. This one is likely to be disabled.
-
-
         // Starts a challenge checker
         if(getChallAuth == null) {
             getChallAuth = new Thread(() -> {
@@ -109,7 +106,7 @@ public class MainActivity extends AppCompatActivity {
             Bundle nfcExtras = new Bundle();
             nfcExtras.putInt(NfcAdapter.EXTRA_READER_PRESENCE_CHECK_DELAY, 5000);
             mNfcAdapter.enableReaderMode(this, tagCallback, NfcAdapter.FLAG_READER_NFC_A|NfcAdapter.FLAG_READER_NFC_V|NfcAdapter.FLAG_READER_SKIP_NDEF_CHECK, nfcExtras);
-            start.setText("Stop Scan");
+            start.setText("Cancel");
             mainText.setText("Challenge received.\n");
             mainText.append("Waiting for tag...");
             setVisible();
@@ -120,6 +117,7 @@ public class MainActivity extends AppCompatActivity {
             start.setText("Start Scan");
             mainText.setText("Challenge received.");
             running.setVisibility(View.INVISIBLE);
+            stopChallenge();
         }
     }
 
@@ -130,11 +128,20 @@ public class MainActivity extends AppCompatActivity {
         start.setText("Start Scan");
         mainText.setText("");
         tv3.setText("");
-        auth = new VivoAuthenticator("");
+        auth = new VivoAuthenticator(API_KEY);
         start.setVisibility(View.VISIBLE);
         getChall.setVisibility(View.INVISIBLE);
         toggleScan(view);
 
+    }
+    public void stopChallenge() {
+        start.setVisibility(View.INVISIBLE);
+        getChall.setVisibility(View.VISIBLE);
+        getChallAuth.interrupt();
+        start.setText("Start Scan");
+        mainText.setText("");
+        tv3.setText("");
+        auth = new VivoAuthenticator(API_KEY);
     }
 
     @Override
@@ -165,16 +172,14 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onPause() {
         /**
-         * Runs before we pause. Just disables the reader mode.
+         * Runs before we pause. Just disables the reader mode and the visibility stuff.
          */
         super.onPause();
         if(started) {
             started = false;
             mNfcAdapter.disableReaderMode(this);
             getChallAuth.interrupt();
-            start.setText("Start Scan");
-            start.setVisibility(View.INVISIBLE);
-            getChall.setVisibility(View.VISIBLE);
+            stopChallenge();
         }
 
     }
