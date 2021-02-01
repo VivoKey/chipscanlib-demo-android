@@ -13,10 +13,8 @@ import android.net.NetworkInfo;
 import android.nfc.NfcAdapter;
 import android.nfc.Tag;
 import android.os.Bundle;
-import android.os.CountDownTimer;
 import android.os.Handler;
 import android.view.View;
-import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.ProgressBar;
 import android.widget.TextView;
@@ -48,11 +46,11 @@ public class MainActivity extends AppCompatActivity {
     ProgressBar running;
     TextView mainText;
     TextView tv3;
+    Button start;
     ReaderDiscovery tagCallback;
     Thread getChallAuth;
     boolean started = false;
     Button getChall;
-    CountDownTimer tmer;
 
 
 
@@ -78,7 +76,6 @@ public class MainActivity extends AppCompatActivity {
         // Starts a challenge checker
         if(getChallAuth == null) {
             getChallAuth = new Thread(() -> {
-
                 auth.getChallenge();
             });
         }
@@ -98,38 +95,45 @@ public class MainActivity extends AppCompatActivity {
         //getChallAuth.start();
     }
 
+    /**
+     * Called when the start button is pressed
+     * @param view
+     */
+    public void toggleScan(View view) {
 
-    public void startChallenge(View view) throws InterruptedException {
-        if (!started) {
-            started = false;
-            mNfcAdapter.disableReaderMode(this);
-            if(getChallAuth.isAlive()) {
-                getChallAuth.stop();
-            }
-            getChallAuth = new Thread(() -> {
-
-                auth.getChallenge();
-            });
-
-            mainText.setText("");
-            tv3.setText("");
-            auth = new VivoAuthenticator("");
-            getChallAuth.start();
+        if(!started) {
             if(tagCallback == null) {
                 tagCallback = new ReaderDiscovery();
             }
-
             started = true;
             Bundle nfcExtras = new Bundle();
             nfcExtras.putInt(NfcAdapter.EXTRA_READER_PRESENCE_CHECK_DELAY, 5000);
             mNfcAdapter.enableReaderMode(this, tagCallback, NfcAdapter.FLAG_READER_NFC_A|NfcAdapter.FLAG_READER_NFC_V|NfcAdapter.FLAG_READER_SKIP_NDEF_CHECK, nfcExtras);
-            getChall.setText("Stop Scan");
-            mainText.setText("Waiting for tag...");
-            tmer.start();
+            start.setText("Stop Scan");
+            mainText.setText("Waiting for tag...\n");
+            mainText.append("Challenge received.");
+            setVisible();
         } else {
-            // Stop scanning
-            stopScan();
+            started = false;
+            mNfcAdapter.disableReaderMode(this);
+            getChallAuth.interrupt();
+            start.setText("Start Scan");
+            mainText.setText("Challenge received.");
         }
+    }
+
+    public void startChallenge(View view) {
+        started = false;
+        mNfcAdapter.disableReaderMode(this);
+        getChallAuth.interrupt();
+        start.setText("Start Scan");
+        mainText.setText("");
+        tv3.setText("");
+        auth = new VivoAuthenticator("d9e65600606720a68293b06acc2ceab2b91a7651f9650377173d6e21c7d9");
+        start.setVisibility(View.VISIBLE);
+        getChall.setVisibility(View.INVISIBLE);
+        toggleScan(view);
+
     }
 
     @Override
@@ -142,58 +146,43 @@ public class MainActivity extends AppCompatActivity {
         running = findViewById(R.id.progressBar);
         mainText = findViewById(R.id.textView);
         tv3 = findViewById(R.id.textView3);
+        start = findViewById(R.id.button);
         mHandler = new Handler();
         getChall = findViewById(R.id.button2);
 
-
-        getChallAuth = new Thread(() -> {
-            running.setVisibility(View.VISIBLE);
-            auth.getChallenge();
-            running.setVisibility(View.INVISIBLE);
-        });
-
-        tmer = new CountDownTimer(30000, 1000){
-
-            @Override
-            public void onTick(long millisUntilFinished) {
-                // Do nothing
-            }
-
-            @Override
-            public void onFinish() {
-                stopScan();
-            }
-        };
-
-
-    }
-
-    protected void stopScan() {
-        started = false;
-        mNfcAdapter.disableReaderMode(this);
-        if(getChallAuth.isAlive()) {
-            getChallAuth.stop();
+        if(getChallAuth == null) {
+            getChallAuth = new Thread(() -> {
+                auth.getChallenge();
+            });
         }
-        getChall.setText("Get Challenge");
-        tmer.cancel();
+
+
+
+
     }
 
     @Override
     protected void onPause() {
         /**
-         * Runs before we pause. Just disables the reader mode and the scan stuff.
+         * Runs before we pause. Just disables the reader mode.
          */
         super.onPause();
         if(started) {
-            stopScan();
-        } else {
+            started = false;
             mNfcAdapter.disableReaderMode(this);
-            if(getChallAuth.isAlive()) {
-                getChallAuth.stop();
-            }
+            getChallAuth.interrupt();
+            start.setText("Start Scan");
+            start.setVisibility(View.INVISIBLE);
+            getChall.setVisibility(View.VISIBLE);
         }
 
+    }
 
+    /**
+     * Set the visibility of the rolly thing from our context
+     */
+    protected void setVisible() {
+        running.setVisibility(View.VISIBLE);
     }
 
     /**
@@ -206,13 +195,11 @@ public class MainActivity extends AppCompatActivity {
         public void run() {
             try {
                 checkApi(); //this function can change value of mInterval.
+
             } finally {
                 // 100% guarantee that this always happens, even if
                 // your update method throws an exception
-                mHandler.postDelayed(mStatusChecker, 300);
-                if(!started) {
-                    mHandler.removeCallbacks(this);
-                }
+                mHandler.postDelayed(mStatusChecker, 100);
             }
         }
     };
@@ -227,13 +214,18 @@ public class MainActivity extends AppCompatActivity {
          */
         // Poll the auth thread to check if it's finished
         if (auth.isFinished() && started) {
+
             // Finished
             stopRepeatingTask();
             authResult = auth.getResult();
             mainText.setText("Auth processed. Chip UID: " + vivotag.getUid());
             running.setVisibility(View.INVISIBLE);
             tv3.setText("Result: ");
-            if(authResult.getIDtype() == "member") {
+            if(auth.isError()) {
+                // Caught an internal exception
+                tv3.append("Error in communication.");
+
+            } else if(authResult.getIDtype() == "member") {
                 // Member ID
                 tv3.append("Member.\n ID:" + authResult.getMemberid());
             } else if(authResult.getIDtype() == "chip") {
@@ -249,11 +241,13 @@ public class MainActivity extends AppCompatActivity {
             // Ignore the tag so we don't get a NTAG read immediately after we stop the reading
             mNfcAdapter.ignore(vivotag.getTag(), 1000, null, null);
             mNfcAdapter.disableReaderMode(this);
-            stopScan();
-            ViewGroup vg = findViewById(R.id.layout);
-            vg.invalidate();
+            getChallAuth.interrupt();
+            start.setText("Start Scan");
+            start.setVisibility(View.INVISIBLE);
+            getChall.setVisibility(View.VISIBLE);
 
         }
+
     }
 
     /**
@@ -284,7 +278,7 @@ public class MainActivity extends AppCompatActivity {
                     auth.setTag(vivotag);
                     auth.start();
                     startRepeatingTask();
-                    mainText.setText("Processing auth...");
+                    //mainText.setText("Processing auth...");
                 }
 
             } catch (IOException e) {
