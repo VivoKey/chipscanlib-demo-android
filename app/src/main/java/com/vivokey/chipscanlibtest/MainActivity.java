@@ -30,6 +30,8 @@ public class MainActivity extends AppCompatActivity {
      * These are the main variables required
      */
 
+    // Set the API key here
+    private static String API_KEY = "";
     // Represents the phone's NFC adapter
     private NfcAdapter mNfcAdapter;
     // Represents a Handler - gets used to poll the Chipscan library to see when it's finished
@@ -51,10 +53,6 @@ public class MainActivity extends AppCompatActivity {
     Thread getChallAuth;
     boolean started = false;
     Button getChall;
-    // Set the API key here
-    private static String API_KEY = "";
-
-
 
     @SuppressLint("SetTextI18n")
     @Override
@@ -163,10 +161,6 @@ public class MainActivity extends AppCompatActivity {
                 auth.getChallenge();
             });
         }
-
-
-
-
     }
 
     @Override
