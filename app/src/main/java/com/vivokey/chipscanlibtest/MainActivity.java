@@ -228,8 +228,12 @@ public class MainActivity extends AppCompatActivity {
             running.setVisibility(View.INVISIBLE);
             tv3.setText("Result: ");
             if(auth.isError()) {
-                // Caught an internal exception
-                tv3.append("Error in communication.");
+                // Caught an internal exception.
+                // There are a few error types included.
+                // You can either use error codes provided in VivoAuthenticator, or just display
+                // the error message directly. We've gone the latter here, but if you're
+                // doing this programmatically you can use the codes.
+                tv3.append(auth.getErrorString());
 
             } else if(authResult.getIDtype() == "member") {
                 // Member ID
