@@ -224,7 +224,7 @@ public class MainActivity extends AppCompatActivity {
             // Finished
             stopRepeatingTask();
             authResult = auth.getResult();
-            mainText.setText("Auth processed. Chip UID: " + vivotag.getUid());
+            mainText.setText("Auth processed.");
             running.setVisibility(View.INVISIBLE);
             tv3.setText("Result: ");
             if(auth.isError()) {
